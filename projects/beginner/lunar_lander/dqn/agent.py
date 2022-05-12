@@ -48,9 +48,9 @@ class DQNLunarLanderAgent:
 
         return model
 
-    def get_q_values(self, state):
+    def get_q_values(self, model, state):
         inputs = state[np.newaxis, ...]
-        return self._model.predict(inputs)[0]
+        return model.predict(inputs)[0]
 
     def get_multiple_q_values(self, states):
         return self._model.predict(states)
@@ -68,7 +68,17 @@ class DQNLunarLanderAgent:
     def select_best_action(self, q_values):
         return np.argmax(q_values)
 
-    def calculate_target_values(self, state_transitions, discount_factor):
+    def copy_model(self, model):
+        backup_file = 'backup_' + str(uuid.uuid4())
+        model.save(backup_file)
+        new_model = load_model(backup_file, custom_objects={'masked_huber_loss': masked_huber_loss(0.0, 1.0)})
+        shutil.rmtree(backup_file)
+        return new_model
+
+    def train_model(self, model, states, targets):
+        model.fit(states, targets, epochs=1, batch_size=len(targets), verbose=0)
+
+    def calculate_target_values(self, model, state_transitions, discount_factor):
         states = []
         new_states = []
 
@@ -95,3 +105,7 @@ class DQNLunarLanderAgent:
             target_vector[state_transition.action] = target_value
             targets.append(target_vector)
         return np.array(targets)
+
+    @property
+    def env(self):
+        return self._env
