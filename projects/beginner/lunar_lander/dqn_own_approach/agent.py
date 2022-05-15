@@ -26,7 +26,15 @@ def predict_q_values(model, state):
     return model.predict(x_in)[0]
 
 
+def get_multiple_q_values(model, states):
+    return model.predict(states)
+
+
 def select_action_epsilon_greedy(q_values, epsilon):
     random_value = random.uniform(0, 1)
     if random_value < epsilon:
         return random.randint(0, len(q_values) - 1)
+
+
+def select_best_action(q_values):
+    return np.argmax(q_values)

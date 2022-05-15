@@ -1,7 +1,9 @@
 import gym
+import numpy as np
 
 from replay import ReplayBuffer
 from agent import create_model, predict_q_values, select_action_epsilon_greedy
+from agent import get_multiple_q_values, select_best_action
 from reward import AverageRewardTracker
 from states import StateTransition
 
@@ -19,7 +21,7 @@ def main():
     starting_epsilon = 1.0
     # minimum_epsilon = 0.01
     # epsilon_decay_factor_per_episode = 0.995
-    # discount_factor = 0.99
+    discount_factor = 0.99
     train_every_x_steps = 4
     env = gym.make("LunarLander-v2")
 
@@ -71,6 +73,29 @@ def main():
 
             if replay_buffer.length() >= training_start and step_count % train_every_x_steps == 0:
                 batch = replay_buffer.get_batch(batch_size=training_batch_size)
+                # extract the states
+                states = [x.old_state for x in batch]
+                new_states = [x.new_state for x in batch]
+
+                q_values_states = get_multiple_q_values(model, np.array(states))
+                q_values_new_states = get_multiple_q_values(model, np.array(new_states))
+
+                targets = []
+                for index, state_transition in enumerate(batch):
+                    best_action = select_best_action(q_values_states[index])
+                    best_action_next_state = q_values_new_states[index][best_action]
+
+                    if state_transition.done:
+                        target_value = state_transition.reward
+                    else:
+                        target_value = state_transition.reward + discount_factor * best_action_next_state
+
+                    target_vector = [0, 0, 0, 0]
+                    target_vector[state_transition.action] = target_value
+                    targets.append(target_vector)
+
+                targets = np.array(targets)
+                model.fit(np.array(states), targets, epochs=1, batch_size=len(targets), verbose=0)
 
 
 if __name__ == '__main__':
