@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 
 from replay import ReplayBuffer
-from agent import create_model, predict_q_values, select_action_epsilon_greedy
+from agent import create_model, predict_q_values, select_action_epsilon_greedy, copy_model
 from agent import get_multiple_q_values, select_best_action
 from reward import AverageRewardTracker
 from states import StateTransition
@@ -17,7 +17,7 @@ def main():
     training_start = 256
     max_episodes = 10000
     max_steps = 1000
-    # target_network_replace_frequency_steps = 1000
+    target_network_replace_frequency_steps = 1000
     model_backup_frequency_episodes = 100
     starting_epsilon = 1.0
     minimum_epsilon = 0.01
@@ -38,6 +38,8 @@ def main():
         outputs=output_shape,
         input_shape=input_shape,
     )
+    target_model = copy_model(model)
+
     # TODO implement target model approach
     epsilon = starting_epsilon
     step_count = 0
@@ -54,8 +56,8 @@ def main():
         state = env.reset()
         # TODO implement fraction approach for better convergence
         q_values = predict_q_values(model=model, state=state)
-        # print('Q-values: {0}'.format(q_values))
-        # print('Max Q: {0}'.format(max(q_values)))
+        print('Q-values: {0}'.format(q_values))
+        print('Max Q: {0}'.format(max(q_values)))
 
         # run steps in the environment - finish the episode
         for step in range(1, max_steps + 1):
@@ -75,6 +77,11 @@ def main():
 
             state = new_state
 
+            if step_count % target_network_replace_frequency_steps == 0:
+                print('Updating target model')
+                target_model = copy_model(model)
+
+
             if replay_buffer.length() >= training_start and step_count % train_every_x_steps == 0:
                 batch = replay_buffer.get_batch(batch_size=training_batch_size)
                 # extract the states
@@ -82,12 +89,18 @@ def main():
                 new_states = [x.new_state for x in batch]
 
                 q_values_states = get_multiple_q_values(model, np.array(states))
-                q_values_new_states = get_multiple_q_values(model, np.array(new_states))
+                q_values_new_state = get_multiple_q_values(model, np.array(new_states))
+
+                q_values_target_model = get_multiple_q_values(target_model, np.array(states))
+                q_values_new_state_target_model = get_multiple_q_values(target_model, np.array(new_states))
 
                 targets = []
                 for index, state_transition in enumerate(batch):
-                    best_action = select_best_action(q_values_states[index])
-                    best_action_next_state = q_values_new_states[index][best_action]
+                    # best_action = select_best_action(q_values_states[index])
+                    # best_action_next_state = q_values_new_states[index][best_action]
+
+                    best_action = select_best_action(q_values_new_state[index])
+                    best_action_next_state = q_values_new_state_target_model[index][best_action]
 
                     if state_transition.done:
                         target_value = state_transition.reward

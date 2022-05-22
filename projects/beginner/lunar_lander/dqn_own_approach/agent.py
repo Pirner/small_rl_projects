@@ -1,3 +1,6 @@
+import uuid
+from tensorflow.keras.models import load_model
+import shutil
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
@@ -5,6 +8,14 @@ from tensorflow.keras.layers import Dense
 import random
 
 from loss import masked_huber_loss
+
+
+def copy_model(model):
+    backup_file = 'backup_'+str(uuid.uuid4())
+    model.save(backup_file)
+    new_model = load_model(backup_file, custom_objects={'masked_huber_loss': masked_huber_loss(0.0, 1.0)})
+    shutil.rmtree(backup_file)
+    return new_model
 
 
 def create_model(lr: float, regularization_factor: float, outputs, input_shape):
