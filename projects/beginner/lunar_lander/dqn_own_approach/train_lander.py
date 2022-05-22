@@ -96,7 +96,7 @@ def main():
 
                 targets = []
                 for index, state_transition in enumerate(batch):
-                    # best_action = select_best_action(q_values_states[index])
+                    # best_action = select_best_action(q_values_states[indexx])
                     # best_action_next_state = q_values_new_states[index][best_action]
 
                     best_action = select_best_action(q_values_new_state[index])
@@ -120,7 +120,7 @@ def main():
         avg_r_tracker.add(episode_reward)
         average = avg_r_tracker.get_average()
 
-        # print(f"episode {episode} finished in {step} steps with reward {episode_reward}. Average reward over last 100: {average}")
+        print(f"episode {episode} finished in {step} steps with reward {episode_reward}. Average reward over last 100: {average}")
 
         # save the model in an interval
         if episode != 0 and episode % model_backup_frequency_episodes == 0:
