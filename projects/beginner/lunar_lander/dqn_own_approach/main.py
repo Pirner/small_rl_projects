@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from tqdm import tqdm
 
 from replay import ReplayBuffer
 from agent import create_model, predict_q_values, select_action_epsilon_greedy
@@ -17,10 +18,10 @@ def main():
     max_episodes = 10000
     max_steps = 1000
     # target_network_replace_frequency_steps = 1000
-    # model_backup_frequency_episodes = 100
+    model_backup_frequency_episodes = 100
     starting_epsilon = 1.0
-    # minimum_epsilon = 0.01
-    # epsilon_decay_factor_per_episode = 0.995
+    minimum_epsilon = 0.01
+    epsilon_decay_factor_per_episode = 0.995
     discount_factor = 0.99
     train_every_x_steps = 4
     env = gym.make("LunarLander-v2")
@@ -41,17 +42,20 @@ def main():
     epsilon = starting_epsilon
     step_count = 0
     avg_r_tracker = AverageRewardTracker(num_rewards_for_average=100)
+
+    # average = np.inf
     # episode means running a whole simulation -> in the case of the LunarLander so one
     # landing approach in the desired area.
-    for episode in range(max_episodes):
-        print('Starting episode {0} with epsilon {1}'.format(episode, epsilon))
+    for episode in tqdm(range(max_episodes), desc='last average reward: {0}, epsilon {1}'.format(
+            avg_r_tracker.get_average(), epsilon)):
+        # print('Starting episode {0} with epsilon {1}'.format(episode, epsilon))
 
         episode_reward = 0
         state = env.reset()
         # TODO implement fraction approach for better convergence
         q_values = predict_q_values(model=model, state=state)
-        print('Q-values: {0}'.format(q_values))
-        print('Max Q: {0}'.format(max(q_values)))
+        # print('Q-values: {0}'.format(q_values))
+        # print('Max Q: {0}'.format(max(q_values)))
 
         # run steps in the environment - finish the episode
         for step in range(1, max_steps + 1):
@@ -96,6 +100,26 @@ def main():
 
                 targets = np.array(targets)
                 model.fit(np.array(states), targets, epochs=1, batch_size=len(targets), verbose=0)
+
+            if done:
+                break
+
+        avg_r_tracker.add(episode_reward)
+        average = avg_r_tracker.get_average()
+
+        # print(f"episode {episode} finished in {step} steps with reward {episode_reward}. Average reward over last 100: {average}")
+
+        # save the model in an interval
+        if episode != 0 and episode % model_backup_frequency_episodes == 0:
+            backup_file = f"model_{episode}.h5"
+            print(f"Backing up model to {backup_file}")
+            model.save(backup_file)
+        epsilon *= epsilon_decay_factor_per_episode
+        epsilon = max(minimum_epsilon, epsilon)
+
+        if average > 200:
+            print('average bigger than 200, finished')
+            break
 
 
 if __name__ == '__main__':
