@@ -25,7 +25,7 @@ def main():
             best_action = select_best_action(q_values)
             new_state, reward, done, info = env.step(action=best_action)
             print(best_action)
-            time.sleep(0.01)
+            # time.sleep(0.01)
             state = new_state
             if done:
                 break
