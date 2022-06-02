@@ -15,6 +15,7 @@ import gym
 from DTO import StateTransition
 from replay import ReplayBuffer
 from reward import AverageRewardTracker
+from loss import masked_huber_loss
 
 
 class LunarLanderTrainer:
@@ -89,7 +90,7 @@ class LunarLanderTrainer:
             average = self._r_tracker.get_average()
 
             print(f"episode {episode} finished with reward {episode_reward}. Average reward over last 100: {average}")
-
+            print('epsilon is {0}'.format(self._epsilon))
             if average > 200:
                 print('average reward bigger 200')
                 break
@@ -109,6 +110,10 @@ class LunarLanderTrainer:
             self._step_count += 1
             q_values_model = LunarLanderTrainer.predict_q_values(model=self._model, state=state)
             action = LunarLanderTrainer.select_action_epsilon_greedy(q_values=q_values_model, epsilon=self._epsilon)
+
+            # if step == 1:
+            # print('Q-values: {0}'.format(q_values_model))
+            # print('Max Q: {0}'.format(max(q_values_model)))
 
             new_state, reward, done, info = self._env.step(action)
             fraction_finished = (step + 1) / self._max_steps
@@ -191,9 +196,8 @@ class LunarLanderTrainer:
     def copy_model(self) -> None:
         backup_file = 'backup_' + str(uuid.uuid4())
         self._model.save(backup_file)
-        # self._target_model = load_model(
-        # backup_file, custom_objects={'masked_huber_loss': masked_huber_loss(0.0, 1.0)})
-        self._target_model = load_model(backup_file)
+        self._target_model = load_model(backup_file, custom_objects={'masked_huber_loss': masked_huber_loss(0.0, 1.0)})
+        # self._target_model = load_model(backup_file)
         shutil.rmtree(backup_file)
 
     @staticmethod
@@ -243,7 +247,7 @@ class LunarLanderTrainer:
 
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         # model.compile(optimizer, loss=masked_huber_loss(0.0, 1.0))
-        model.compile(optimizer=optimizer, loss='mse')
+        model.compile(optimizer=optimizer, loss=masked_huber_loss(0.0, 1.0))
 
         return model
 
