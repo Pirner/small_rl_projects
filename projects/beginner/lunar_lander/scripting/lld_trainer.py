@@ -14,6 +14,7 @@ import gym
 
 from DTO import StateTransition
 from replay import ReplayBuffer
+from reward import AverageRewardTracker
 
 
 class LunarLanderTrainer:
@@ -42,6 +43,7 @@ class LunarLanderTrainer:
         self._model_backup_frequency_episodes = 25
         self._minimum_epsilon = 0.01
 
+        self._r_tracker = AverageRewardTracker()
         self._model = LunarLanderTrainer.create_model(
             lr=self._lr,
             reg_factor=self._reg_factor,
@@ -73,7 +75,7 @@ class LunarLanderTrainer:
         self._epsilon = self._starting_epsilon
 
         for episode in tqdm(range(self._max_episodes), total=self._max_episodes):
-            self._run_episode()
+            episode_reward = self._run_episode()
 
             if episode != 0 and episode % self._model_backup_frequency_episodes == 0:
                 backup_file = f"model_{episode}.h5"
@@ -82,6 +84,15 @@ class LunarLanderTrainer:
 
             self._epsilon *= self._epsilon_decay_factor_per_episode
             self._epsilon = max(self._minimum_epsilon, self._epsilon)
+
+            self._r_tracker.add(reward=episode_reward)
+            average = self._r_tracker.get_average()
+
+            print(f"episode {episode} finished with reward {episode_reward}. Average reward over last 100: {average}")
+
+            if average > 200:
+                print('average reward bigger 200')
+                break
 
     def _run_episode(self):
         """
@@ -134,6 +145,8 @@ class LunarLanderTrainer:
 
             if done:
                 break
+
+        return episode_reward
 
     def _calculate_target_values(self, state_transitions, discount_factor):
         """
